@@ -1,0 +1,20 @@
+services:
+  onboarding-kof-api:
+    build: .
+    container_name: onboarding-kof-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.onboarding-kof-api.rule=Host(`api.entersys.mx`) && PathPrefix(`/api/v1/onboarding`)"
+      - "traefik.http.routers.onboarding-kof-api.priority=110"
+      - "traefik.http.routers.onboarding-kof-api.entrypoints=websecure"
+      - "traefik.http.routers.onboarding-kof-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.onboarding-kof-api.loadbalancer.server.port=8000"
+
+networks:
+  traefik-public:
+    external: true

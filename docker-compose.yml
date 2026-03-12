@@ -1,0 +1,19 @@
+services:
+  entersys-onboarding:
+    build: .
+    container_name: entersys-onboarding
+    restart: unless-stopped
+    networks:
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      # HTTPS router — matches all 5 onboarding routes on both www and naked domain
+      - "traefik.http.routers.entersys-onboarding.rule=Host(`www.entersys.mx`, `entersys.mx`) && (PathPrefix(`/curso-seguridad`) || PathPrefix(`/formulario-curso-seguridad`) || PathPrefix(`/credencial-kof`) || PathPrefix(`/certificacion-seguridad`) || PathPrefix(`/actualizar-perfil`))"
+      - "traefik.http.routers.entersys-onboarding.priority=100"
+      - "traefik.http.routers.entersys-onboarding.entrypoints=websecure"
+      - "traefik.http.routers.entersys-onboarding.tls.certresolver=letsencrypt"
+      - "traefik.http.services.entersys-onboarding.loadbalancer.server.port=80"
+
+networks:
+  traefik-public:
+    external: true
