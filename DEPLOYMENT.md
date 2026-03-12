@@ -107,6 +107,7 @@ These URLs are shared with Coca-Cola FEMSA (KOF) and printed on QR codes. They m
 | **Google Cloud Storage** | Credential photos storage | `GCS_BUCKET_NAME`, `GCS_PROJECT_ID` |
 | **Gmail API** | Send certificate emails | Service account credentials |
 | **Traefik v2.10** | Reverse proxy, TLS, routing | Docker labels in docker-compose.yml |
+| **CDN (cdn.entersys.mx)** | Serves the training video (`Curso_On_Boarding_2026_SYS_V3.mp4`, ~93MB) | Hardcoded in `src/pages/CursoSeguridad.jsx:17` and allowed in `nginx.conf` CSP |
 
 ## Database Tables
 
