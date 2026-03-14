@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    volumes:
+      - ./credentials:/app/credentials:ro
     networks:
       - traefik-public
     labels:
