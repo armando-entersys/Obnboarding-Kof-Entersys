@@ -170,7 +170,9 @@ The frontend docker-compose.yml (at project root) has Traefik labels that route 
 
 ### Deploy Backend (FastAPI)
 
-**IMPORTANT**: The backend is currently served as part of the main `entersys-backend` container. To fully separate it:
+The onboarding backend runs as an **independent container** (`onboarding-kof-api`). The onboarding router has been REMOVED from the main `entersys-backend` (main.py line 109). This backend uses Traefik priority 110 to intercept `/api/v1/onboarding` requests before they reach the main API.
+
+**Deploy steps:**
 
 1. Create a `.env` file in `backend/` with production credentials (see `.env.example`)
 2. Copy the GCP service account JSON for Gmail API and GCS access
@@ -190,10 +192,7 @@ docker compose up -d --build
 curl https://api.entersys.mx/api/v1/onboarding/health
 ```
 
-**NOTE ON BACKEND SEPARATION**: Currently the onboarding API endpoints live inside the main `entersys-backend` FastAPI app (shared with CRM, admin, and other services). The backend code in this repo is extracted for reference and future independent deployment. To fully separate it:
-- The backend docker-compose.yml uses priority 110 on Traefik so it takes precedence over the main backend for `/api/v1/onboarding` routes
-- You need to ensure the main backend's onboarding router is removed once this service is independently deployed
-- Both share the same PostgreSQL database (exam_categories, exam_questions tables)
+**SEPARATION STATUS**: The onboarding router has been REMOVED from `entersys-backend/app/main.py`. This backend is now the sole handler for `/api/v1/onboarding/*` requests via Traefik priority 110. Both services share the same PostgreSQL database (exam_categories, exam_questions tables). Deploying changes to the main EnterSys backend will NOT affect onboarding.
 
 ### Environment Variables
 
