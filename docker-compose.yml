@@ -4,7 +4,7 @@ services:
     container_name: entersys-onboarding
     restart: unless-stopped
     networks:
-      - traefik-public
+      - traefik
     labels:
       - "traefik.enable=true"
       # HTTPS router — matches all 5 onboarding routes on both www and naked domain
@@ -15,5 +15,5 @@ services:
       - "traefik.http.services.entersys-onboarding.loadbalancer.server.port=80"
 
 networks:
-  traefik-public:
+  traefik:
     external: true

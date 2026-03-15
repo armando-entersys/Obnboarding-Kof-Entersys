@@ -8,11 +8,11 @@ services:
     volumes:
       - ./credentials:/app/credentials:ro
     networks:
-      - traefik-public
+      - traefik
       - entersys-backend
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=traefik-public"
+      - "traefik.docker.network=traefik"
       - "traefik.http.routers.onboarding-kof-api.rule=Host(`api.entersys.mx`) && PathPrefix(`/api/v1/onboarding`)"
       - "traefik.http.routers.onboarding-kof-api.priority=110"
       - "traefik.http.routers.onboarding-kof-api.entrypoints=websecure"
@@ -20,11 +20,8 @@ services:
       - "traefik.http.services.onboarding-kof-api.loadbalancer.server.port=8000"
 
 networks:
-  traefik-public:
+  traefik:
     external: true
   entersys-backend:
-    # This is the internal network where PostgreSQL runs.
-    # The actual network name in production must match the backend's docker-compose.
-    # Use `docker network ls | grep entersys` on the server to find the exact name.
-    # Then set it here. Common names: entersys_net, content-management_entersys_net
+    name: content-management_entersys_net
     external: true
