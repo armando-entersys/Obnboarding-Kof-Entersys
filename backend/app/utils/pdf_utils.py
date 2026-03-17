@@ -55,6 +55,34 @@ def fetch_photo_from_url(url: str) -> Optional[bytes]:
     return None
 
 
+def _generate_placeholder_photo() -> bytes:
+    """Genera una imagen PNG placeholder con texto 'Foto Perfil' para usuarios sin foto."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    size = 300
+    img = Image.new("RGB", (size, size), color=(229, 231, 235))
+    draw = ImageDraw.Draw(img)
+
+    # Icono de persona (círculo cabeza + óvalo cuerpo)
+    gray = (156, 163, 175)
+    draw.ellipse([size // 2 - 45, size // 2 - 75, size // 2 + 45, size // 2 + 15], fill=gray)
+    draw.ellipse([size // 2 - 65, size // 2 + 20, size // 2 + 65, size // 2 + 120], fill=gray)
+
+    # Texto "Foto Perfil"
+    text = "Foto Perfil"
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+    except (OSError, IOError):
+        font = ImageFont.load_default()
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_w = bbox[2] - bbox[0]
+    draw.text(((size - text_w) // 2, size - 50), text, fill=(107, 114, 128), font=font)
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def generate_certificate_pdf(
     collaborator_data: Dict[str, Any],
     section_results: Optional[Dict[str, Any]] = None,
@@ -90,13 +118,17 @@ def generate_certificate_pdf(
     fecha_emision = collaborator_data.get("fecha_emision", collaborator_data.get("fecha_examen", "N/A"))
     foto_url = collaborator_data.get("foto_url", "")
 
-    # Validar que la foto esté disponible - nunca generar PDF sin foto
-    if not foto_url:
-        raise ValueError("No se puede generar el PDF sin foto del colaborador (foto_url vacío)")
+    # Descargar foto o generar placeholder si no hay
+    photo_bytes = None
+    has_real_photo = False
+    if foto_url:
+        photo_bytes = fetch_photo_from_url(foto_url)
+        if photo_bytes:
+            has_real_photo = True
 
-    photo_bytes = fetch_photo_from_url(foto_url)
     if not photo_bytes:
-        raise ValueError(f"No se puede generar el PDF: no se pudo descargar la foto desde {foto_url}")
+        photo_bytes = _generate_placeholder_photo()
+        logger.info(f"Using placeholder photo for {rfc}")
 
     # ══════════════════════════════════════════════════════════════════
     # HEADER - Barra roja superior con logo
