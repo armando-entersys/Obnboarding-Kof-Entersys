@@ -199,12 +199,17 @@ def generate_certificate_pdf(
     info_x = photo_x + photo_size + 40
     info_y = section_y - 10
 
-    # Nombre grande
+    # Nombre grande (tamaño dinámico para nombres largos)
     c.setFillColor(COLOR_DARK)
-    c.setFont("Helvetica-Bold", 20)
     name_display = str(full_name).upper()
-    if len(name_display) > 30:
-        name_display = name_display[:30] + "..."
+    max_name_width = page_width - info_x - margin_x
+    font_size = 20
+    while font_size > 11:
+        c.setFont("Helvetica-Bold", font_size)
+        if c.stringWidth(name_display, "Helvetica-Bold", font_size) <= max_name_width:
+            break
+        font_size -= 1
+    c.setFont("Helvetica-Bold", font_size)
     c.drawString(info_x, info_y, name_display)
 
     # RFC
