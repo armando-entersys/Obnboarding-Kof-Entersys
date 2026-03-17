@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "Entersys"
     FRONTEND_URL: str = "https://www.entersys.mx"
 
+    # --- Support Panel ---
+    SUPPORT_USERNAME: str = "soporte"
+    SUPPORT_PASSWORD: str = "Operaciones.2026"
+
     # --- Smartsheet Webhook ---
     SMARTSHEET_WEBHOOK_CALLBACK_URL: str = ""
 

@@ -5,6 +5,62 @@ import toastService from '@/services/toast';
 const API_BASE_URL = config.urls.api;
 
 export default function SoportePanel() {
+  // Auth state
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!sessionStorage.getItem('support_token'));
+  const [loginUser, setLoginUser] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loggingIn, setLoggingIn] = useState(false);
+
+  const getAuthHeaders = () => ({
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${sessionStorage.getItem('support_token')}`,
+  });
+
+  const authFetch = async (url, options = {}) => {
+    const resp = await fetch(url, {
+      ...options,
+      headers: { ...getAuthHeaders(), ...(options.headers || {}) },
+    });
+    if (resp.status === 401 || resp.status === 403) {
+      sessionStorage.removeItem('support_token');
+      setIsAuthenticated(false);
+      toastService.error('Sesión expirada. Inicia sesión de nuevo.');
+      throw new Error('Unauthorized');
+    }
+    return resp;
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoggingIn(true);
+    setLoginError('');
+    try {
+      const resp = await fetch(`${API_BASE_URL}/v1/onboarding/support/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: loginUser, password: loginPass }),
+      });
+      if (!resp.ok) {
+        setLoginError('Usuario o contraseña incorrectos');
+        return;
+      }
+      const data = await resp.json();
+      sessionStorage.setItem('support_token', data.token);
+      setIsAuthenticated(true);
+      toastService.success(`Bienvenido, ${data.username}`);
+    } catch {
+      setLoginError('Error de conexión');
+    } finally {
+      setLoggingIn(false);
+    }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('support_token');
+    setIsAuthenticated(false);
+  };
+
   // Tab control
   const [activeTab, setActiveTab] = useState('no-photo');
 
@@ -39,7 +95,7 @@ export default function SoportePanel() {
   const loadNoPhotoUsers = async () => {
     setLoadingUsers(true);
     try {
-      const resp = await fetch(`${API_BASE_URL}/v1/onboarding/support/no-photo-users`);
+      const resp = await authFetch(`${API_BASE_URL}/v1/onboarding/support/no-photo-users`);
       const data = await resp.json();
       if (data.success) {
         setNoPhotoUsers(data.users);
@@ -57,9 +113,8 @@ export default function SoportePanel() {
     setSendingAll(true);
     setBulkResult(null);
     try {
-      const resp = await fetch(`${API_BASE_URL}/v1/onboarding/support/send-all-photo-requests`, {
+      const resp = await authFetch(`${API_BASE_URL}/v1/onboarding/support/send-all-photo-requests`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
       });
       const data = await resp.json();
       setBulkResult(data);
@@ -74,9 +129,8 @@ export default function SoportePanel() {
   const sendIndividualPhotoRequest = async (rfc) => {
     setSendingIndividual(prev => ({ ...prev, [rfc]: true }));
     try {
-      const resp = await fetch(`${API_BASE_URL}/v1/onboarding/send-photo-update-request/${rfc}`, {
+      const resp = await authFetch(`${API_BASE_URL}/v1/onboarding/send-photo-update-request/${rfc}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
       });
       const data = await resp.json();
       if (data.success) {
@@ -97,9 +151,8 @@ export default function SoportePanel() {
     setSendingPhotoRfc(true);
     setPhotoRfcResult(null);
     try {
-      const resp = await fetch(`${API_BASE_URL}/v1/onboarding/send-photo-update-request/${photoRfc.trim().toUpperCase()}`, {
+      const resp = await authFetch(`${API_BASE_URL}/v1/onboarding/send-photo-update-request/${photoRfc.trim().toUpperCase()}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
       });
       const data = await resp.json();
       setPhotoRfcResult(data);
@@ -122,9 +175,8 @@ export default function SoportePanel() {
     setSendingCert(true);
     setCertResult(null);
     try {
-      const resp = await fetch(`${API_BASE_URL}/v1/onboarding/support/resend-cert/${certRfc.trim().toUpperCase()}`, {
+      const resp = await authFetch(`${API_BASE_URL}/v1/onboarding/support/resend-cert/${certRfc.trim().toUpperCase()}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
       });
       const data = await resp.json();
       setCertResult(data);
@@ -149,7 +201,7 @@ export default function SoportePanel() {
       if (logSearch.trim()) params.set('search', logSearch.trim());
       if (logLevel) params.set('level', logLevel);
 
-      const resp = await fetch(`${API_BASE_URL}/v1/onboarding/support/logs?${params}`);
+      const resp = await authFetch(`${API_BASE_URL}/v1/onboarding/support/logs?${params}`);
       const data = await resp.json();
       if (data.success) {
         setLogs(data.logs);
@@ -204,6 +256,55 @@ export default function SoportePanel() {
     { id: 'logs', label: 'Logs', icon: '🔍' },
   ];
 
+  // ========== LOGIN SCREEN ==========
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <img src="/onboarding-assets/images/coca-cola-femsa-logo.png" alt="FEMSA" className="h-16 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-800">Panel de Soporte</h1>
+            <p className="text-sm text-gray-500 mt-1">Onboarding Seguridad KOF</p>
+          </div>
+          <form onSubmit={handleLogin} className="bg-white rounded-lg shadow-lg p-8 space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
+              <input
+                type="text"
+                value={loginUser}
+                onChange={e => setLoginUser(e.target.value)}
+                placeholder="Usuario"
+                autoFocus
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+              <input
+                type="password"
+                value={loginPass}
+                onChange={e => setLoginPass(e.target.value)}
+                placeholder="Contraseña"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              />
+            </div>
+            {loginError && (
+              <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{loginError}</p>
+            )}
+            <button
+              type="submit"
+              disabled={loggingIn || !loginUser || !loginPass}
+              className="w-full py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+            >
+              {loggingIn ? 'Ingresando...' : 'Iniciar Sesión'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // ========== MAIN PANEL ==========
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -216,6 +317,12 @@ export default function SoportePanel() {
               <p className="text-sm text-gray-500">Onboarding Seguridad KOF</p>
             </div>
           </div>
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          >
+            Cerrar Sesión
+          </button>
         </div>
       </header>
 

@@ -1,9 +1,12 @@
 # app/api/v1/endpoints/onboarding.py
-from fastapi import APIRouter, Query, HTTPException, BackgroundTasks, status, UploadFile, File, Form, Depends
+from fastapi import APIRouter, Query, HTTPException, BackgroundTasks, status, UploadFile, File, Form, Depends, Header
 from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import logging
 import random
 import uuid
+import hashlib
+import hmac
 from datetime import datetime, timedelta
 from typing import Optional, List
 import asyncio
@@ -3224,7 +3227,7 @@ def send_photo_update_request_email(
     summary="Enviar correo de solicitud de actualización de foto",
     description="Envía un correo al colaborador solicitando que actualice su foto de credencial."
 )
-async def send_photo_update_request(rfc: str):
+async def send_photo_update_request(rfc: str, _user: str = Depends(require_support_auth)):
     """
     Endpoint para enviar correo de solicitud de foto a un colaborador sin foto.
     """
@@ -3290,15 +3293,78 @@ async def send_photo_update_request(rfc: str):
 
 
 # ============================================================
-# PANEL DE SOPORTE
+# PANEL DE SOPORTE - AUTH
 # ============================================================
+
+_security = HTTPBearer()
+
+
+def _create_support_token(username: str) -> str:
+    """Crea un token HMAC para sesión de soporte (válido 8 horas)."""
+    expires = int((datetime.utcnow() + timedelta(hours=8)).timestamp())
+    payload = f"{username}:{expires}"
+    sig = hmac.new(
+        settings.SECRET_KEY.encode(), payload.encode(), hashlib.sha256
+    ).hexdigest()[:32]
+    return f"{payload}:{sig}"
+
+
+def _verify_support_token(token: str) -> str:
+    """Verifica token de soporte. Retorna username o lanza HTTPException."""
+    try:
+        parts = token.split(":")
+        if len(parts) != 3:
+            raise ValueError("Invalid token format")
+        username, expires_str, sig = parts
+        payload = f"{username}:{expires_str}"
+        expected_sig = hmac.new(
+            settings.SECRET_KEY.encode(), payload.encode(), hashlib.sha256
+        ).hexdigest()[:32]
+        if not hmac.compare_digest(sig, expected_sig):
+            raise ValueError("Invalid signature")
+        if int(expires_str) < int(datetime.utcnow().timestamp()):
+            raise ValueError("Token expired")
+        return username
+    except Exception:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+
+
+async def require_support_auth(
+    credentials: HTTPAuthorizationCredentials = Depends(_security),
+) -> str:
+    """Dependency que protege endpoints de soporte."""
+    return _verify_support_token(credentials.credentials)
+
+
+@router.post(
+    "/support/login",
+    summary="Login del panel de soporte",
+)
+async def support_login(request: dict):
+    """Autentica usuario de soporte y retorna token."""
+    username = request.get("username", "").strip()
+    password = request.get("password", "")
+
+    if username != settings.SUPPORT_USERNAME or password != settings.SUPPORT_PASSWORD:
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+
+    token = _create_support_token(username)
+    logger.info(f"Support login successful: {username}")
+
+    return {
+        "success": True,
+        "token": token,
+        "username": username,
+        "expires_in": 8 * 60 * 60,
+    }
+
 
 @router.get(
     "/support/no-photo-users",
     summary="Listar usuarios aprobados sin foto",
     description="Obtiene la lista de colaboradores aprobados que no tienen foto registrada."
 )
-async def list_no_photo_users():
+async def list_no_photo_users(_user: str = Depends(require_support_auth)):
     """Lista todos los aprobados sin foto para el panel de soporte."""
     try:
         service = get_onboarding_service_singleton()
@@ -3329,7 +3395,7 @@ async def list_no_photo_users():
     summary="Enviar correo de foto a TODOS los aprobados sin foto",
     description="Envía el correo de solicitud de actualización de foto a todos los aprobados sin foto."
 )
-async def send_all_photo_requests():
+async def send_all_photo_requests(_user: str = Depends(require_support_auth)):
     """Envía correos masivos de solicitud de foto."""
     try:
         service = get_onboarding_service_singleton()
@@ -3414,7 +3480,7 @@ async def send_all_photo_requests():
     summary="Reenviar certificado por RFC (soporte, sin NSS)",
     description="Reenvía el certificado al email registrado sin requerir NSS. Solo para uso de soporte."
 )
-async def support_resend_cert(rfc: str):
+async def support_resend_cert(rfc: str, _user: str = Depends(require_support_auth)):
     """Reenvía certificado sin requerir NSS - uso exclusivo de soporte."""
     logger.info(f"POST /support/resend-cert/{rfc}")
 
@@ -3480,7 +3546,8 @@ async def support_resend_cert(rfc: str):
 async def get_support_logs(
     search: Optional[str] = Query(None, description="Buscar en logs (RFC, email, error, etc.)"),
     level: Optional[str] = Query(None, description="Filtrar por nivel: error, warning, info"),
-    limit: int = Query(100, description="Número de líneas", ge=10, le=500)
+    limit: int = Query(100, description="Número de líneas", ge=10, le=500),
+    _user: str = Depends(require_support_auth),
 ):
     """Obtiene logs recientes del sistema para soporte."""
     import subprocess
