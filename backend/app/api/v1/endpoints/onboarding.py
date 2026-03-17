@@ -3118,9 +3118,9 @@ def send_photo_update_request_email(
                     su <strong>foto de credencial actualizada</strong> por motivos de seguridad en el acceso a sus instalaciones.</p>
                 </div>
 
-                <p>Hemos detectado que tu registro no cuenta con una foto de credencial. Tu certificación de seguridad
-                está vigente, sin embargo es necesario que actualices tu foto para cumplir con los requisitos de
-                identificación de KOF.</p>
+                <p>Como parte del proceso de seguridad, es necesario que todos los colaboradores mantengan
+                su foto de credencial actualizada. Te solicitamos tomarte unos minutos para actualizar tu
+                fotografía en el sistema.</p>
 
                 <div class="certificate-info">
                     <p><strong>Tu Certificación Actual:</strong></p>
