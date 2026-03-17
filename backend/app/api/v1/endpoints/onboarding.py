@@ -2987,3 +2987,302 @@ async def update_profile(request: ProfileUpdateRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error interno del servidor"
         )
+
+
+# ============================================================
+# Correo especial: solicitud de actualización de foto
+# ============================================================
+
+def send_photo_update_request_email(
+    email_to: str,
+    full_name: str,
+    rfc: str,
+    cert_uuid: str,
+    expiration_date_str: str,
+    collaborator_data: dict = None,
+    section_results: dict = None
+) -> bool:
+    """
+    Envía correo solicitando actualización de foto de credencial.
+    Incluye PDF con placeholder y enlace a /actualizar-perfil.
+    Correo de uso único para usuarios sin foto por fallo de GCS.
+    """
+    try:
+        qr_image = generate_certificate_qr(cert_uuid, API_BASE_URL)
+
+        expiration_date = None
+        for date_format in ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y']:
+            try:
+                expiration_date = datetime.strptime(str(expiration_date_str), date_format)
+                break
+            except ValueError:
+                continue
+        if not expiration_date:
+            expiration_date = datetime.utcnow() + timedelta(days=365)
+
+        subject = f"Acción Requerida: Actualiza tu Foto de Credencial - {full_name}"
+
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    max-width: 600px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    background-color: #f9fafb;
+                }}
+                .container {{
+                    background-color: #ffffff;
+                    border-radius: 8px;
+                    padding: 30px;
+                    margin: 20px 0;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }}
+                .header {{
+                    text-align: center;
+                    margin-bottom: 30px;
+                    padding-bottom: 20px;
+                    border-bottom: 3px solid #FFC600;
+                }}
+                .logo {{
+                    max-height: 80px;
+                    margin-bottom: 15px;
+                }}
+                h1 {{
+                    color: #1f2937;
+                    font-size: 22px;
+                    margin: 0;
+                }}
+                .alert-box {{
+                    background-color: #FEF3C7;
+                    border-left: 4px solid #F59E0B;
+                    padding: 15px;
+                    margin: 20px 0;
+                    border-radius: 4px;
+                }}
+                .certificate-info {{
+                    background-color: #f0fdf4;
+                    border-left: 4px solid #16a34a;
+                    padding: 15px;
+                    margin: 20px 0;
+                    border-radius: 4px;
+                }}
+                .steps-box {{
+                    background-color: #EFF6FF;
+                    border: 1px solid #BFDBFE;
+                    padding: 20px;
+                    margin: 20px 0;
+                    border-radius: 8px;
+                }}
+                .btn {{
+                    display: inline-block;
+                    background-color: #D91E18;
+                    color: #ffffff;
+                    padding: 14px 40px;
+                    text-decoration: none;
+                    border-radius: 6px;
+                    font-size: 16px;
+                    font-weight: bold;
+                }}
+                .footer {{
+                    text-align: center;
+                    margin-top: 30px;
+                    padding-top: 20px;
+                    border-top: 1px solid #e5e7eb;
+                    font-size: 12px;
+                    color: #6b7280;
+                }}
+                .highlight {{
+                    color: #16a34a;
+                    font-weight: bold;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <img src="https://entersys.mx/images/coca-cola-femsa-logo.png" alt="FEMSA" class="logo">
+                    <h1>Actualización de Foto de Credencial</h1>
+                </div>
+
+                <p>Estimado/a <strong>{full_name}</strong>,</p>
+
+                <div class="alert-box">
+                    <p style="margin: 0;"><strong>Coca-Cola FEMSA (KOF)</strong> requiere que todos los colaboradores cuenten con
+                    su <strong>foto de credencial actualizada</strong> por motivos de seguridad en el acceso a sus instalaciones.</p>
+                </div>
+
+                <p>Hemos detectado que tu registro no cuenta con una foto de credencial. Tu certificación de seguridad
+                está vigente, sin embargo es necesario que actualices tu foto para cumplir con los requisitos de
+                identificación de KOF.</p>
+
+                <div class="certificate-info">
+                    <p><strong>Tu Certificación Actual:</strong></p>
+                    <ul style="margin: 5px 0;">
+                        <li>Nombre: <strong>{full_name}</strong></li>
+                        <li>RFC: <strong>{rfc}</strong></li>
+                        <li>Estado: <span class="highlight">VIGENTE</span></li>
+                        <li>Válido hasta: <span class="highlight">{expiration_date.strftime('%d/%m/%Y')}</span></li>
+                    </ul>
+                </div>
+
+                <p>Adjunto a este correo encontrarás tu certificado PDF y código QR actuales.
+                <strong>Una vez que actualices tu foto</strong>, recibirás una nueva versión con tu fotografía.</p>
+
+                <div class="steps-box">
+                    <p style="margin: 0 0 10px 0; font-weight: bold; color: #1E40AF;">Para actualizar tu foto:</p>
+                    <ol style="margin: 0; padding-left: 20px;">
+                        <li>Haz clic en el botón de abajo</li>
+                        <li>Ingresa tu <strong>RFC</strong> y <strong>NSS</strong></li>
+                        <li>Toma una nueva foto con tu cámara</li>
+                        <li>Guarda los cambios</li>
+                    </ol>
+                </div>
+
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="https://www.entersys.mx/actualizar-perfil" class="btn">
+                        Actualizar mi Foto
+                    </a>
+                </div>
+
+                <p><strong>Importante:</strong></p>
+                <ul>
+                    <li>Tu certificación sigue vigente, no es necesario volver a realizar el examen.</li>
+                    <li>La foto debe ser tipo credencial: rostro visible, fondo claro, sin accesorios que cubran el rostro.</li>
+                    <li>Puedes acceder desde tu celular o computadora con cámara.</li>
+                </ul>
+
+                <div class="footer">
+                    <p>Este es un correo enviado por el equipo de EnterSys a solicitud de Coca-Cola FEMSA.</p>
+                    <p>&copy; {datetime.utcnow().year} FEMSA - Entersys. Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        attachments = []
+
+        # QR adjunto
+        attachments.append({
+            "filename": f"certificado_qr_{cert_uuid[:8]}.png",
+            "content": base64.b64encode(qr_image).decode('utf-8')
+        })
+
+        # PDF con placeholder
+        if collaborator_data:
+            try:
+                pdf_data = collaborator_data.copy()
+                pdf_data.update({
+                    "full_name": full_name,
+                    "email": email_to,
+                    "cert_uuid": cert_uuid,
+                    "vencimiento": expiration_date.strftime('%d/%m/%Y'),
+                    "fecha_emision": datetime.utcnow().strftime('%d/%m/%Y'),
+                    "is_approved": True,
+                })
+                if "foto_url" not in pdf_data and "url_imagen" in pdf_data:
+                    pdf_data["foto_url"] = pdf_data["url_imagen"]
+
+                pdf_bytes = generate_certificate_pdf(
+                    collaborator_data=pdf_data,
+                    section_results=section_results,
+                    qr_image_bytes=qr_image
+                )
+                attachments.append({
+                    "filename": f"certificado_{rfc.upper()}.pdf",
+                    "content": base64.b64encode(pdf_bytes).decode('utf-8')
+                })
+            except Exception as e:
+                logger.warning(f"Could not generate PDF for photo update request: {e}")
+
+        result = send_email_via_gmail_api(
+            to_emails=[email_to],
+            subject=subject,
+            html_content=html_content,
+            attachments=attachments
+        )
+
+        if result:
+            logger.info(f"Photo update request email sent to {email_to} for RFC {rfc}")
+        return result
+
+    except Exception as e:
+        logger.error(f"Error sending photo update request email: {e}")
+        return False
+
+
+@router.post(
+    "/send-photo-update-request/{rfc}",
+    summary="Enviar correo de solicitud de actualización de foto",
+    description="Envía un correo al colaborador solicitando que actualice su foto de credencial."
+)
+async def send_photo_update_request(rfc: str):
+    """
+    Endpoint para enviar correo de solicitud de foto a un colaborador sin foto.
+    """
+    logger.info(f"POST /onboarding/send-photo-update-request/{rfc}")
+
+    if not rfc or len(rfc) < 10:
+        raise HTTPException(status_code=400, detail="RFC inválido")
+
+    try:
+        service = get_onboarding_service_singleton()
+        credential_data = await service.get_credential_data_by_rfc(rfc)
+
+        if not credential_data:
+            raise HTTPException(status_code=404, detail="No se encontró registro para este RFC")
+
+        if credential_data.get("url_imagen"):
+            return {
+                "success": False,
+                "message": "Este colaborador ya tiene foto registrada",
+                "email_sent": False
+            }
+
+        email = credential_data.get("email")
+        if not email:
+            raise HTTPException(status_code=400, detail="El colaborador no tiene email registrado")
+
+        full_name = credential_data.get("full_name", "Colaborador")
+        cert_uuid = credential_data.get("cert_uuid", "")
+        vencimiento = credential_data.get("vencimiento", "")
+
+        collaborator_data = {
+            "rfc": rfc.upper(),
+            "proveedor": credential_data.get("proveedor"),
+            "tipo_servicio": credential_data.get("tipo_servicio"),
+            "nss": credential_data.get("nss"),
+            "rfc_empresa": credential_data.get("rfc_empresa"),
+            "foto_url": "",  # sin foto, usará placeholder
+        }
+
+        section_results = credential_data.get("section_results")
+
+        email_sent = await asyncio.to_thread(
+            send_photo_update_request_email,
+            email, full_name, rfc.upper(), cert_uuid, str(vencimiento),
+            collaborator_data, section_results
+        )
+
+        masked = mask_email(email)
+
+        return {
+            "success": email_sent,
+            "message": "Correo de solicitud de foto enviado" if email_sent else "Error al enviar el correo",
+            "email_sent": email_sent,
+            "email_masked": masked,
+            "nombre": full_name
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in send-photo-update-request: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
