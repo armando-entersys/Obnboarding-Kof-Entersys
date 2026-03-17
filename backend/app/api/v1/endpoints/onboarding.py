@@ -3118,9 +3118,10 @@ def send_photo_update_request_email(
                     su <strong>foto de credencial actualizada</strong> por motivos de seguridad en el acceso a sus instalaciones.</p>
                 </div>
 
-                <p>Como parte del proceso de seguridad, es necesario que todos los colaboradores mantengan
-                su foto de credencial actualizada. Te solicitamos tomarte unos minutos para actualizar tu
-                fotografía en el sistema.</p>
+                <p>Como parte del proceso de seguridad, <strong>Coca-Cola FEMSA requiere de manera obligatoria</strong>
+                que todos los colaboradores mantengan su foto de credencial actualizada.
+                Al recibir este correo, es indispensable que realices la actualización de tu fotografía
+                a la brevedad posible para mantener tu acceso vigente a las instalaciones.</p>
 
                 <div class="certificate-info">
                     <p><strong>Tu Certificación Actual:</strong></p>
