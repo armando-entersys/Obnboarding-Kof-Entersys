@@ -13,6 +13,7 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify('1.0.0'),
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
   },
+  base: '/onboarding-assets/',
   build: {
     outDir: 'dist',
     sourcemap: false,
