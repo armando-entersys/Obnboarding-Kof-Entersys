@@ -8,7 +8,7 @@ services:
     labels:
       - "traefik.enable=true"
       # HTTPS router — matches all 5 onboarding routes on both www and naked domain
-      - "traefik.http.routers.entersys-onboarding.rule=Host(`www.entersys.mx`, `entersys.mx`) && (PathPrefix(`/curso-seguridad`) || PathPrefix(`/formulario-curso-seguridad`) || PathPrefix(`/credencial-kof`) || PathPrefix(`/certificacion-seguridad`) || PathPrefix(`/actualizar-perfil`) || PathPrefix(`/onboarding-assets`))"
+      - "traefik.http.routers.entersys-onboarding.rule=Host(`www.entersys.mx`, `entersys.mx`) && (PathPrefix(`/curso-seguridad`) || PathPrefix(`/formulario-curso-seguridad`) || PathPrefix(`/credencial-kof`) || PathPrefix(`/certificacion-seguridad`) || PathPrefix(`/actualizar-perfil`) || PathPrefix(`/soporte-onboarding`) || PathPrefix(`/onboarding-assets`))"
       - "traefik.http.routers.entersys-onboarding.priority=100"
       - "traefik.http.routers.entersys-onboarding.entrypoints=websecure"
       - "traefik.http.routers.entersys-onboarding.tls.certresolver=letsencrypt"

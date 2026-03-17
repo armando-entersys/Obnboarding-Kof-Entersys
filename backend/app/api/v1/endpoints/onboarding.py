@@ -3287,3 +3287,298 @@ async def send_photo_update_request(rfc: str):
     except Exception as e:
         logger.error(f"Error in send-photo-update-request: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+
+# ============================================================
+# PANEL DE SOPORTE
+# ============================================================
+
+@router.get(
+    "/support/no-photo-users",
+    summary="Listar usuarios aprobados sin foto",
+    description="Obtiene la lista de colaboradores aprobados que no tienen foto registrada."
+)
+async def list_no_photo_users():
+    """Lista todos los aprobados sin foto para el panel de soporte."""
+    try:
+        service = get_onboarding_service_singleton()
+        registros = await service.get_all_registros()
+
+        no_photo = []
+        for r in registros:
+            url_img = r.get("url_imagen") or ""
+            resultado = r.get("Resultado Examen", "") or ""
+            if not str(url_img).strip() and str(resultado).strip().lower() == "aprobado":
+                no_photo.append({
+                    "rfc": r.get("RFC del Colaborador", ""),
+                    "nombre": r.get("Nombre Colaborador", ""),
+                    "email": r.get("Correo Electrónico", ""),
+                    "proveedor": r.get("Proveedor / Empresa", ""),
+                    "nss": r.get("NSS del Colaborador", ""),
+                })
+
+        return {"success": True, "total": len(no_photo), "users": no_photo}
+
+    except Exception as e:
+        logger.error(f"Error listing no-photo users: {e}")
+        raise HTTPException(status_code=500, detail="Error al consultar registros")
+
+
+@router.post(
+    "/support/send-all-photo-requests",
+    summary="Enviar correo de foto a TODOS los aprobados sin foto",
+    description="Envía el correo de solicitud de actualización de foto a todos los aprobados sin foto."
+)
+async def send_all_photo_requests():
+    """Envía correos masivos de solicitud de foto."""
+    try:
+        service = get_onboarding_service_singleton()
+        registros = await service.get_all_registros()
+
+        no_photo_rfcs = []
+        for r in registros:
+            url_img = r.get("url_imagen") or ""
+            resultado = r.get("Resultado Examen", "") or ""
+            if not str(url_img).strip() and str(resultado).strip().lower() == "aprobado":
+                rfc = r.get("RFC del Colaborador", "")
+                if rfc:
+                    no_photo_rfcs.append(rfc)
+
+        sent = 0
+        failed = 0
+        results = []
+        for rfc in no_photo_rfcs:
+            try:
+                credential_data = await service.get_credential_data_by_rfc(rfc)
+                if not credential_data:
+                    results.append({"rfc": rfc, "status": "not_found"})
+                    failed += 1
+                    continue
+
+                if credential_data.get("url_imagen"):
+                    results.append({"rfc": rfc, "status": "has_photo"})
+                    continue
+
+                email = credential_data.get("email")
+                if not email:
+                    results.append({"rfc": rfc, "status": "no_email"})
+                    failed += 1
+                    continue
+
+                full_name = credential_data.get("full_name", "Colaborador")
+                cert_uuid = credential_data.get("cert_uuid", "")
+                vencimiento = credential_data.get("vencimiento", "")
+
+                collaborator_data = {
+                    "rfc": rfc.upper(),
+                    "proveedor": credential_data.get("proveedor"),
+                    "tipo_servicio": credential_data.get("tipo_servicio"),
+                    "nss": credential_data.get("nss"),
+                    "rfc_empresa": credential_data.get("rfc_empresa"),
+                    "foto_url": "",
+                }
+                section_results = credential_data.get("section_results")
+
+                email_sent = await asyncio.to_thread(
+                    send_photo_update_request_email,
+                    email, full_name, rfc.upper(), cert_uuid, str(vencimiento),
+                    collaborator_data, section_results
+                )
+
+                if email_sent:
+                    sent += 1
+                    results.append({"rfc": rfc, "status": "sent", "email": mask_email(email)})
+                else:
+                    failed += 1
+                    results.append({"rfc": rfc, "status": "send_failed"})
+
+            except Exception as e:
+                failed += 1
+                results.append({"rfc": rfc, "status": "error", "detail": str(e)[:100]})
+
+        return {
+            "success": True,
+            "total": len(no_photo_rfcs),
+            "sent": sent,
+            "failed": failed,
+            "results": results
+        }
+
+    except Exception as e:
+        logger.error(f"Error in send-all-photo-requests: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+
+@router.post(
+    "/support/resend-cert/{rfc}",
+    summary="Reenviar certificado por RFC (soporte, sin NSS)",
+    description="Reenvía el certificado al email registrado sin requerir NSS. Solo para uso de soporte."
+)
+async def support_resend_cert(rfc: str):
+    """Reenvía certificado sin requerir NSS - uso exclusivo de soporte."""
+    logger.info(f"POST /support/resend-cert/{rfc}")
+
+    if not rfc or len(rfc) < 10:
+        raise HTTPException(status_code=400, detail="RFC inválido")
+
+    try:
+        service = get_onboarding_service_singleton()
+        credential_data = await service.get_credential_data_by_rfc(rfc)
+
+        if not credential_data:
+            raise HTTPException(status_code=404, detail="No se encontró registro para este RFC")
+
+        email = credential_data.get("email")
+        if not email:
+            raise HTTPException(status_code=400, detail="El colaborador no tiene email registrado")
+
+        full_name = credential_data.get("full_name", "Colaborador")
+        cert_uuid = credential_data.get("cert_uuid", "")
+        vencimiento = credential_data.get("vencimiento", "")
+        is_approved = credential_data.get("is_approved", False)
+
+        if not is_approved or not cert_uuid:
+            raise HTTPException(status_code=400, detail="El colaborador no tiene certificación aprobada")
+
+        collaborator_data = {
+            "rfc": rfc.upper(),
+            "proveedor": credential_data.get("proveedor"),
+            "tipo_servicio": credential_data.get("tipo_servicio"),
+            "nss": credential_data.get("nss"),
+            "rfc_empresa": credential_data.get("rfc_empresa"),
+            "url_imagen": credential_data.get("url_imagen", ""),
+            "foto_url": credential_data.get("url_imagen", ""),
+        }
+        section_results = credential_data.get("section_results")
+
+        email_sent = await asyncio.to_thread(
+            resend_approved_certificate_email,
+            email, full_name, cert_uuid, str(vencimiento),
+            collaborator_data, section_results
+        )
+
+        return {
+            "success": email_sent,
+            "message": "Certificado reenviado" if email_sent else "Error al enviar",
+            "email_sent": email_sent,
+            "email_masked": mask_email(email),
+            "nombre": full_name
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in support/resend-cert: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+
+@router.get(
+    "/support/logs",
+    summary="Obtener logs recientes del sistema",
+    description="Obtiene los últimos logs del sistema filtrados por tipo y búsqueda."
+)
+async def get_support_logs(
+    search: Optional[str] = Query(None, description="Buscar en logs (RFC, email, error, etc.)"),
+    level: Optional[str] = Query(None, description="Filtrar por nivel: error, warning, info"),
+    limit: int = Query(100, description="Número de líneas", ge=10, le=500)
+):
+    """Obtiene logs recientes del sistema para soporte."""
+    import subprocess
+
+    try:
+        # Leer logs del proceso actual via docker logs (stdout/stderr)
+        cmd = ["tail", "-n", str(limit * 3), "/proc/1/fd/1"]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            raw_lines = result.stdout.splitlines() if result.stdout else []
+        except Exception:
+            raw_lines = []
+
+        # Fallback: leer desde logging handler en memoria
+        if not raw_lines:
+            # Usar el MemoryLogHandler si existe
+            handler = _get_memory_log_handler()
+            raw_lines = list(handler.buffer) if handler else []
+
+        # Filtrar y parsear
+        logs = []
+        for line in raw_lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # Determinar nivel
+            log_level = "info"
+            if "ERROR" in line or "Error" in line or "error" in line:
+                log_level = "error"
+            elif "WARNING" in line or "Warning" in line or "warn" in line:
+                log_level = "warning"
+
+            # Filtrar por nivel
+            if level and log_level != level:
+                continue
+
+            # Filtrar por búsqueda
+            if search and search.upper() not in line.upper():
+                continue
+
+            logs.append({
+                "message": line[:500],
+                "level": log_level,
+            })
+
+        # Tomar solo las últimas N
+        logs = logs[-limit:]
+
+        return {
+            "success": True,
+            "total": len(logs),
+            "logs": logs
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting support logs: {e}")
+        raise HTTPException(status_code=500, detail="Error al obtener logs")
+
+
+# In-memory log handler for support panel
+class _MemoryLogHandler(logging.Handler):
+    """Stores last N log records in memory for the support panel."""
+    def __init__(self, capacity=2000):
+        super().__init__()
+        from collections import deque
+        self.buffer = deque(maxlen=capacity)
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            self.buffer.append(msg)
+        except Exception:
+            pass
+
+
+_memory_handler_instance = None
+
+
+def _get_memory_log_handler():
+    global _memory_handler_instance
+    return _memory_handler_instance
+
+
+def _setup_memory_log_handler():
+    global _memory_handler_instance
+    if _memory_handler_instance is None:
+        _memory_handler_instance = _MemoryLogHandler(capacity=2000)
+        _memory_handler_instance.setFormatter(
+            logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s')
+        )
+        logging.getLogger().addHandler(_memory_handler_instance)
+        # Also capture uvicorn access logs
+        for name in ['uvicorn', 'uvicorn.access', 'uvicorn.error', '']:
+            log = logging.getLogger(name)
+            if _memory_handler_instance not in log.handlers:
+                log.addHandler(_memory_handler_instance)
+
+
+# Initialize on module load
+_setup_memory_log_handler()
