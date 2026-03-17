@@ -688,13 +688,19 @@ export default function FormularioCursoSeguridad() {
     setIsSubmitting(true);
 
     try {
-      // Subir foto primero si existe
+      // Subir foto (obligatoria)
       let photoUrl = null;
       if (photoFile) {
         photoUrl = await uploadPhoto();
         if (!photoUrl) {
-          console.warn('No se pudo subir la foto, continuando sin ella');
+          alert('Error al subir la foto de credencial. Por favor intenta de nuevo.');
+          setIsSubmitting(false);
+          return;
         }
+      } else {
+        alert('La foto de credencial es obligatoria.');
+        setIsSubmitting(false);
+        return;
       }
 
       // Preparar respuestas SIN is_correct (el backend valida contra BD)

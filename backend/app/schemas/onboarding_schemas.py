@@ -179,8 +179,8 @@ class ExamSubmitRequest(BaseModel):
     proveedor: str = Field(..., description="Nombre del proveedor", min_length=2, max_length=255)
     email: EmailStr = Field(..., description="Correo electrónico")
 
-    # URL de la foto de credencial (opcional, almacenada en GCS)
-    url_imagen: Optional[str] = Field(None, description="URL de la foto de credencial en GCS")
+    # URL de la foto de credencial (obligatoria, almacenada en GCS)
+    url_imagen: str = Field(..., description="URL de la foto de credencial en GCS", min_length=1)
 
     # Respuestas del examen (dinámico según categorías activas)
     answers: list[ExamAnswer] = Field(..., description="Lista de respuestas del examen")
