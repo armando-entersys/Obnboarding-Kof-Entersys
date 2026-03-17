@@ -414,7 +414,6 @@ export default function SoportePanel() {
             </div>
           </div>
         )}
-      </main>
 
         {/* ========== TAB 4: Logs ========== */}
         {activeTab === 'logs' && (
