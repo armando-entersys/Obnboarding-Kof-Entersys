@@ -3222,6 +3222,73 @@ def send_photo_update_request_email(
         return False
 
 
+# ============================================================
+# SOPORTE AUTH (must be defined before endpoints that use it)
+# ============================================================
+
+_security = HTTPBearer()
+
+
+def _create_support_token(username: str) -> str:
+    """Crea un token HMAC para sesión de soporte (válido 8 horas)."""
+    expires = int((datetime.utcnow() + timedelta(hours=8)).timestamp())
+    payload = f"{username}:{expires}"
+    sig = hmac.new(
+        settings.SECRET_KEY.encode(), payload.encode(), hashlib.sha256
+    ).hexdigest()[:32]
+    return f"{payload}:{sig}"
+
+
+def _verify_support_token(token: str) -> str:
+    """Verifica token de soporte. Retorna username o lanza HTTPException."""
+    try:
+        parts = token.split(":")
+        if len(parts) != 3:
+            raise ValueError("Invalid token format")
+        username, expires_str, sig = parts
+        payload = f"{username}:{expires_str}"
+        expected_sig = hmac.new(
+            settings.SECRET_KEY.encode(), payload.encode(), hashlib.sha256
+        ).hexdigest()[:32]
+        if not hmac.compare_digest(sig, expected_sig):
+            raise ValueError("Invalid signature")
+        if int(expires_str) < int(datetime.utcnow().timestamp()):
+            raise ValueError("Token expired")
+        return username
+    except Exception:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+
+
+async def require_support_auth(
+    credentials: HTTPAuthorizationCredentials = Depends(_security),
+) -> str:
+    """Dependency que protege endpoints de soporte."""
+    return _verify_support_token(credentials.credentials)
+
+
+@router.post(
+    "/support/login",
+    summary="Login del panel de soporte",
+)
+async def support_login(request: dict):
+    """Autentica usuario de soporte y retorna token."""
+    username = request.get("username", "").strip()
+    password = request.get("password", "")
+
+    if username != settings.SUPPORT_USERNAME or password != settings.SUPPORT_PASSWORD:
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+
+    token = _create_support_token(username)
+    logger.info(f"Support login successful: {username}")
+
+    return {
+        "success": True,
+        "token": token,
+        "username": username,
+        "expires_in": 8 * 60 * 60,
+    }
+
+
 @router.post(
     "/send-photo-update-request/{rfc}",
     summary="Enviar correo de solicitud de actualización de foto",
@@ -3293,71 +3360,8 @@ async def send_photo_update_request(rfc: str, _user: str = Depends(require_suppo
 
 
 # ============================================================
-# PANEL DE SOPORTE - AUTH
+# PANEL DE SOPORTE
 # ============================================================
-
-_security = HTTPBearer()
-
-
-def _create_support_token(username: str) -> str:
-    """Crea un token HMAC para sesión de soporte (válido 8 horas)."""
-    expires = int((datetime.utcnow() + timedelta(hours=8)).timestamp())
-    payload = f"{username}:{expires}"
-    sig = hmac.new(
-        settings.SECRET_KEY.encode(), payload.encode(), hashlib.sha256
-    ).hexdigest()[:32]
-    return f"{payload}:{sig}"
-
-
-def _verify_support_token(token: str) -> str:
-    """Verifica token de soporte. Retorna username o lanza HTTPException."""
-    try:
-        parts = token.split(":")
-        if len(parts) != 3:
-            raise ValueError("Invalid token format")
-        username, expires_str, sig = parts
-        payload = f"{username}:{expires_str}"
-        expected_sig = hmac.new(
-            settings.SECRET_KEY.encode(), payload.encode(), hashlib.sha256
-        ).hexdigest()[:32]
-        if not hmac.compare_digest(sig, expected_sig):
-            raise ValueError("Invalid signature")
-        if int(expires_str) < int(datetime.utcnow().timestamp()):
-            raise ValueError("Token expired")
-        return username
-    except Exception:
-        raise HTTPException(status_code=401, detail="Token inválido o expirado")
-
-
-async def require_support_auth(
-    credentials: HTTPAuthorizationCredentials = Depends(_security),
-) -> str:
-    """Dependency que protege endpoints de soporte."""
-    return _verify_support_token(credentials.credentials)
-
-
-@router.post(
-    "/support/login",
-    summary="Login del panel de soporte",
-)
-async def support_login(request: dict):
-    """Autentica usuario de soporte y retorna token."""
-    username = request.get("username", "").strip()
-    password = request.get("password", "")
-
-    if username != settings.SUPPORT_USERNAME or password != settings.SUPPORT_PASSWORD:
-        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
-
-    token = _create_support_token(username)
-    logger.info(f"Support login successful: {username}")
-
-    return {
-        "success": True,
-        "token": token,
-        "username": username,
-        "expires_in": 8 * 60 * 60,
-    }
-
 
 @router.get(
     "/support/no-photo-users",
