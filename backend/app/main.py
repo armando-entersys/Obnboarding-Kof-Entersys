@@ -1,7 +1,7 @@
 # app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1.endpoints import onboarding
+from app.api.v1.endpoints import onboarding, smartsheet_webhook
 
 app = FastAPI(
     title="Onboarding KOF API",
@@ -30,6 +30,13 @@ app.include_router(
     onboarding.router,
     prefix="/api/v1/onboarding",
     tags=["Onboarding"],
+)
+
+
+app.include_router(
+    smartsheet_webhook.router,
+    prefix="/api/v1/smartsheet-webhook",
+    tags=["Smartsheet Webhook"],
 )
 
 
