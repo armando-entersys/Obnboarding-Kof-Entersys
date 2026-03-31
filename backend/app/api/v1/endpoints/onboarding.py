@@ -3542,6 +3542,69 @@ async def support_resend_cert(rfc: str, _user: str = Depends(require_support_aut
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 
+@router.post(
+    "/quick-resend/{rfc}",
+    summary="Reenvío rápido de certificado por RFC",
+    description="Reenvía el certificado al email registrado. Endpoint para uso desde enlaces directos."
+)
+async def quick_resend_cert(rfc: str):
+    """Reenvía certificado de forma inmediata sin autenticación. Para uso desde enlaces en Smartsheet."""
+    logger.info(f"POST /onboarding/quick-resend/{rfc}")
+
+    if not rfc or len(rfc) < 10:
+        raise HTTPException(status_code=400, detail="RFC inválido")
+
+    try:
+        service = get_onboarding_service_singleton()
+        credential_data = await service.get_credential_data_by_rfc(rfc)
+
+        if not credential_data:
+            raise HTTPException(status_code=404, detail="No se encontró registro para este RFC")
+
+        email = credential_data.get("email")
+        if not email:
+            raise HTTPException(status_code=400, detail="El colaborador no tiene email registrado")
+
+        full_name = credential_data.get("full_name", "Colaborador")
+        cert_uuid = credential_data.get("cert_uuid", "")
+        vencimiento = credential_data.get("vencimiento", "")
+        is_approved = credential_data.get("is_approved", False)
+
+        if not is_approved or not cert_uuid:
+            raise HTTPException(status_code=400, detail="El colaborador no tiene certificación aprobada")
+
+        collaborator_data = {
+            "rfc": rfc.upper(),
+            "proveedor": credential_data.get("proveedor"),
+            "tipo_servicio": credential_data.get("tipo_servicio"),
+            "nss": credential_data.get("nss"),
+            "rfc_empresa": credential_data.get("rfc_empresa"),
+            "url_imagen": credential_data.get("url_imagen", ""),
+            "foto_url": credential_data.get("url_imagen", ""),
+        }
+        section_results = credential_data.get("section_results")
+
+        email_sent = await asyncio.to_thread(
+            resend_approved_certificate_email,
+            email, full_name, cert_uuid, str(vencimiento),
+            collaborator_data, section_results
+        )
+
+        return {
+            "success": email_sent,
+            "message": "Certificado reenviado exitosamente" if email_sent else "Error al enviar el correo",
+            "email_sent": email_sent,
+            "email_masked": mask_email(email),
+            "nombre": full_name
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in quick-resend: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+
 @router.get(
     "/support/logs",
     summary="Obtener logs recientes del sistema",

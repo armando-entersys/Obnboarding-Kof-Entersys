@@ -7,6 +7,7 @@ const CredencialKOF = lazy(() => import('./pages/CredencialKOF'));
 const CertificacionSeguridad = lazy(() => import('./pages/CertificacionSeguridad'));
 const ActualizarPerfil = lazy(() => import('./pages/ActualizarPerfil'));
 const SoportePanel = lazy(() => import('./pages/SoportePanel'));
+const ReenvioRapido = lazy(() => import('./pages/ReenvioRapido'));
 
 const Loading = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/certificacion-seguridad/:uuid" element={<CertificacionSeguridad />} />
         <Route path="/actualizar-perfil" element={<ActualizarPerfil />} />
         <Route path="/soporte-onboarding" element={<SoportePanel />} />
+        <Route path="/onboarding-reenvio/:rfc" element={<ReenvioRapido />} />
         <Route path="*" element={
           <div className="min-h-screen flex items-center justify-center">
             <p className="text-gray-500">Ruta no encontrada</p>
