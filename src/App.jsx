@@ -28,6 +28,7 @@ export default function App() {
         <Route path="/actualizar-perfil" element={<ActualizarPerfil />} />
         <Route path="/soporte-onboarding" element={<SoportePanel />} />
         <Route path="/onboarding-reenvio/:rfc" element={<ReenvioRapido />} />
+        <Route path="/onboarding-reenvio" element={<ReenvioRapido />} />
         <Route path="*" element={
           <div className="min-h-screen flex items-center justify-center">
             <p className="text-gray-500">Ruta no encontrada</p>

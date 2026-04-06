@@ -199,7 +199,7 @@ export default function CursoSeguridad() {
             <h2 className="text-xl font-bold text-gray-800 text-center mb-6">
               ¿Necesitas ayuda?
             </h2>
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="max-w-md mx-auto">
               <a
                 href="https://www.entersys.mx/onboarding-reenvio"
                 className="flex items-center gap-4 p-5 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors group"
@@ -210,20 +210,6 @@ export default function CursoSeguridad() {
                 <div>
                   <h3 className="font-semibold text-blue-800">Reenvío de Certificado</h3>
                   <p className="text-sm text-blue-600">¿Ya aprobaste y no recibiste tu certificado? Solicita un reenvío aquí.</p>
-                </div>
-              </a>
-              <a
-                href="https://wa.me/528123180079?text=Hola%2C%20necesito%20ayuda%20con%20el%20Onboarding%20de%20Seguridad%20KOF"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-4 p-5 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors group"
-              >
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-green-200">
-                  <span className="text-2xl">💬</span>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-green-800">Soporte por WhatsApp</h3>
-                  <p className="text-sm text-green-600">¿Tienes problemas con el video, examen o tu certificado? Contáctanos.</p>
                 </div>
               </a>
             </div>
