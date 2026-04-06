@@ -1,5 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
+import SupportFloatButton from './components/SupportFloatButton';
 
 const CursoSeguridad = lazy(() => import('./pages/CursoSeguridad'));
 const FormularioCursoSeguridad = lazy(() => import('./pages/FormularioCursoSeguridad'));
@@ -18,6 +19,7 @@ const Loading = () => (
 export default function App() {
   return (
     <Suspense fallback={<Loading />}>
+      <SupportFloatButton />
       <Routes>
         <Route path="/curso-seguridad" element={<CursoSeguridad />} />
         <Route path="/formulario-curso-seguridad" element={<FormularioCursoSeguridad />} />
